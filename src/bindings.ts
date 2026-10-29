@@ -151,6 +151,16 @@ export const commands = {
 	fsDelete: (path: string) => typedError<null, IdeError>(__TAURI_INVOKE("fs_delete", { path })),
 	fsCopy: (from: string, to: string) => typedError<null, IdeError>(__TAURI_INVOKE("fs_copy", { from, to })),
 	/**
+	 *  Markdown paste: writes pasted bytes (base64) as a new file in `dir`;
+	 *  returns the path used (numbered when the name is taken).
+	 */
+	fsSavePasted: (dir: string, name: string, data: string) => typedError<string, IdeError>(__TAURI_INVOKE("fs_save_pasted", { dir, name, data })),
+	/**
+	 *  Markdown paste: copies a file or folder into `dir` without overwriting;
+	 *  returns the path used.
+	 */
+	fsCopyInto: (from: string, dir: string) => typedError<string, IdeError>(__TAURI_INVOKE("fs_copy_into", { from, dir })),
+	/**
 	 *  Reads a text file without opening it as a document (previews, quick
 	 *  definition). Prefers the unsaved buffer when the file is open.
 	 */
@@ -2698,6 +2708,7 @@ export type EditorSettings_Deserialize = {
 	/**  Typography Settings › Bold font weight: wherever the editor renders bold. */
 	boldFontWeight?: number,
 	general?: EditorGeneralSettings,
+	markdownPaste?: MarkdownPasteSettings,
 	appearance?: EditorAppearanceSettings,
 	breadcrumbs?: BreadcrumbsSettings,
 	completion?: CompletionSettings,
@@ -2745,6 +2756,7 @@ export type EditorSettings_Serialize = {
 	/**  Typography Settings › Bold font weight: wherever the editor renders bold. */
 	boldFontWeight: number,
 	general: EditorGeneralSettings,
+	markdownPaste: MarkdownPasteSettings,
 	appearance: EditorAppearanceSettings,
 	breadcrumbs: BreadcrumbsSettings,
 	completion: CompletionSettings,
@@ -4010,6 +4022,18 @@ export type MainToolbarSettings = {
 	right?: string[],
 	/**  Widgets the user removed. */
 	hidden?: string[],
+};
+
+/**
+ *  Editor › General › Markdown Paste: images and files pasted into a Markdown
+ *  file are saved next to it and linked.
+ */
+export type MarkdownPasteSettings = {
+	enabled?: boolean,
+	/**  Target folder, relative to the Markdown file's folder (or absolute). */
+	directory?: string,
+	/**  Pasted image data is saved as `<prefix>-<timestamp>.<ext>`. */
+	imagePrefix?: string,
 };
 
 export type Markup = {

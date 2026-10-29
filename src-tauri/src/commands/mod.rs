@@ -119,6 +119,8 @@ pub fn builder() -> tauri_specta::Builder<tauri::Wry> {
         fs::fs_set_writable,
         fs::fs_delete,
         fs::fs_copy,
+        fs::fs_save_pasted,
+        fs::fs_copy_into,
         fs::fs_read_text,
         clipboard::clipboard_file_list,
         clipboard::clipboard_has_files,

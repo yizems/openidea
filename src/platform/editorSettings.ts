@@ -77,6 +77,14 @@ export const EDITOR_EXTRA_DEFAULTS = {
     removeTrailingBlankLines: false,
     richTextCopy: true,
   },
+  /** Pasting images and files into a Markdown file saves them next to it and inserts links. */
+  markdownPaste: {
+    enabled: true,
+    /** Relative to the Markdown file's folder (an absolute path works too). */
+    directory: "./assets",
+    /** Pasted image data is saved as `<prefix>-<timestamp>.<ext>`. */
+    imagePrefix: "image",
+  },
   appearance: {
     caretBlinking: true,
     caretBlinkPeriod: 500,

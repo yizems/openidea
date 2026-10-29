@@ -175,6 +175,10 @@ impl Dispatcher {
         })
         .add("fs_delete", |c| async move { ops::fs::delete(&c.host, &c.window, c.arg("path")?).await })
         .add("fs_copy", |c| async move { ops::fs::copy(&c.host, c.arg("from")?, c.arg("to")?).await })
+        .add("fs_save_pasted", |c| async move {
+            ops::fs::save_pasted(&c.host, c.arg("dir")?, c.arg("name")?, c.arg("data")?).await
+        })
+        .add("fs_copy_into", |c| async move { ops::fs::copy_into(&c.host, c.arg("from")?, c.arg("dir")?).await })
         .add("fs_read_text", |c| async move { ops::fs::read_text(&c.host, &c.window, c.arg("path")?).await })
         .add("doc_open", |c| async move { ops::doc::open(&c.host, &c.window, c.arg("path")?).await })
         .add("doc_close", |c| async move { ops::doc::close(&c.host, &c.window, c.arg("doc")?) })

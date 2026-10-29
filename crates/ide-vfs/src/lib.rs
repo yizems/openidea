@@ -1,6 +1,7 @@
 //! File system access for the IDE. The UI never touches the disk directly.
 
 mod archive;
+mod assets;
 mod bytes;
 mod encoding;
 mod ops;
@@ -19,7 +20,10 @@ pub use archive::{
     ARCHIVE_EXTENSIONS, archive_entry_path, archive_root, is_archive_file, is_archive_path, read_archive_dir,
     read_archive_entry, split_archive_path,
 };
-pub use bytes::{ByteRange, FileProbe, MAX_RANGE_LEN, base64, image_mime, probe, read_data_url, read_range};
+pub use assets::{copy_unique, save_unique};
+pub use bytes::{
+    ByteRange, FileProbe, MAX_RANGE_LEN, base64, base64_decode, image_mime, probe, read_data_url, read_range,
+};
 use encoding::SNIFF_LEN;
 pub use encoding::{
     LARGE_FILE_THRESHOLD, MAX_OPEN_SIZE, READ_ONLY_THRESHOLD, encode, write_atomic, write_atomic_strict,

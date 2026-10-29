@@ -74,6 +74,24 @@ pub async fn copy(host: &Host, from: PathBuf, to: PathBuf) -> IdeResult<()> {
     host.blocking(move || ide_vfs::copy(&from, &to)).await
 }
 
+/// Writes pasted bytes (base64) as a new file in `dir`; returns the path used.
+pub async fn save_pasted(host: &Host, dir: PathBuf, name: String, data: String) -> IdeResult<String> {
+    host.blocking(move || {
+        let bytes = ide_vfs::base64_decode(&data)?;
+        ide_vfs::save_unique(&dir, &name, &bytes).map(slash)
+    })
+    .await
+}
+
+/// Copies a file or folder into `dir` without overwriting; returns the path used.
+pub async fn copy_into(host: &Host, from: PathBuf, dir: PathBuf) -> IdeResult<String> {
+    host.blocking(move || ide_vfs::copy_unique(&from, &dir).map(slash)).await
+}
+
+fn slash(path: PathBuf) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
 /// Reads a text file without opening it as a document; prefers the unsaved buffer.
 pub async fn read_text(host: &Host, window: &str, path: PathBuf) -> IdeResult<String> {
     let project = host.project(window).ok();

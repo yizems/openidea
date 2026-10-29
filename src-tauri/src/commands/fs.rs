@@ -52,6 +52,22 @@ pub async fn fs_copy(state: State<'_, AppState>, from: PathBuf, to: PathBuf) -> 
     fs::copy(&state.host, from, to).await
 }
 
+/// Markdown paste: writes pasted bytes (base64) as a new file in `dir`;
+/// returns the path used (numbered when the name is taken).
+#[tauri::command]
+#[specta::specta]
+pub async fn fs_save_pasted(state: State<'_, AppState>, dir: PathBuf, name: String, data: String) -> IdeResult<String> {
+    fs::save_pasted(&state.host, dir, name, data).await
+}
+
+/// Markdown paste: copies a file or folder into `dir` without overwriting;
+/// returns the path used.
+#[tauri::command]
+#[specta::specta]
+pub async fn fs_copy_into(state: State<'_, AppState>, from: PathBuf, dir: PathBuf) -> IdeResult<String> {
+    fs::copy_into(&state.host, from, dir).await
+}
+
 /// Reads a text file without opening it as a document (previews, quick
 /// definition). Prefers the unsaved buffer when the file is open.
 #[tauri::command]

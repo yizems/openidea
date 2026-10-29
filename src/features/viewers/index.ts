@@ -27,6 +27,7 @@ import {
 import { ImageViewer, toggleChessboard, useImageViewers } from "./ImageViewer";
 import { HexViewer } from "./HexViewer";
 import { registerMarkdownLiveSource } from "./markdown/live";
+import { registerMarkdownPaste } from "./markdown/paste";
 import { setMarkdownMode, type MarkdownMode } from "./markdown/modes";
 
 const titleOf = (input: EditorInput) => basename(input.path ?? input.key);
@@ -99,6 +100,7 @@ export function activate(): () => void {
       component: lazyComponent(() => import("./markdown/MarkdownEditor").then((m) => m.MarkdownEditor)),
     }),
     registerMarkdownLiveSource(),
+    registerMarkdownPaste(),
     registerActions([...imageActions(), ...markdownActions()]),
   ];
   return () => disposers.reverse().forEach((d) => d());

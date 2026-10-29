@@ -621,6 +621,43 @@ const RICH_COPY = editorPage({
   ],
 });
 
+const MARKDOWN_PASTE = editorPage({
+  id: "editor.general.markdownPaste",
+  title: "Markdown Paste",
+  order: 8.5,
+  keywords: ["markdown", "paste", "image", "screenshot", "assets", "attachment", "clipboard", "file"],
+  sections: [
+    {
+      items: [
+        {
+          t: "note",
+          text: "Pasting an image into a Markdown file saves it in the folder below and inserts a link to it. Other files are pasted as their file names.",
+        },
+        {
+          t: "check",
+          key: `${P}.markdownPaste.enabled`,
+          label: "Save pasted images next to the Markdown file",
+          children: [
+            {
+              t: "text",
+              key: `${P}.markdownPaste.directory`,
+              label: "Folder",
+              placeholder: "./assets",
+              hint: "Relative to the Markdown file's folder. Created when missing.",
+            },
+            {
+              t: "text",
+              key: `${P}.markdownPaste.imagePrefix`,
+              label: "Pasted image name prefix",
+              hint: "Image data is saved as prefix-date-time.png; a number is added when the name is taken.",
+            },
+          ],
+        },
+      ],
+    },
+  ],
+});
+
 const SMART_KEYS = editorPage({
   id: "editor.general.smartKeys",
   title: "Smart Keys",
@@ -818,6 +855,7 @@ export const GENERAL_PAGES = [
   GUTTER,
   INLINE_COMPLETION,
   RICH_COPY,
+  MARKDOWN_PASTE,
   SMART_KEYS,
   STICKY,
   CODE_EDITING,

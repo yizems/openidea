@@ -372,6 +372,7 @@ pub struct EditorSettings {
     /// Typography Settings › Bold font weight: wherever the editor renders bold.
     pub bold_font_weight: u16,
     pub general: EditorGeneralSettings,
+    pub markdown_paste: MarkdownPasteSettings,
     pub appearance: EditorAppearanceSettings,
     pub breadcrumbs: BreadcrumbsSettings,
     pub completion: CompletionSettings,
@@ -411,6 +412,7 @@ impl Default for EditorSettings {
             font_weight: 400,
             bold_font_weight: 700,
             general: EditorGeneralSettings::default(),
+            markdown_paste: MarkdownPasteSettings::default(),
             appearance: EditorAppearanceSettings::default(),
             breadcrumbs: BreadcrumbsSettings::default(),
             completion: CompletionSettings::default(),

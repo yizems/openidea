@@ -48,6 +48,24 @@ impl Default for EditorGeneralSettings {
     }
 }
 
+/// Editor › General › Markdown Paste: images and files pasted into a Markdown
+/// file are saved next to it and linked.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
+#[serde(default, rename_all = "camelCase")]
+pub struct MarkdownPasteSettings {
+    pub enabled: bool,
+    /// Target folder, relative to the Markdown file's folder (or absolute).
+    pub directory: String,
+    /// Pasted image data is saved as `<prefix>-<timestamp>.<ext>`.
+    pub image_prefix: String,
+}
+
+impl Default for MarkdownPasteSettings {
+    fn default() -> Self {
+        Self { enabled: true, directory: "./assets".into(), image_prefix: "image".into() }
+    }
+}
+
 /// Editor › General › Appearance.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Type)]
 #[serde(default, rename_all = "camelCase")]

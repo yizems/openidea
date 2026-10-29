@@ -134,9 +134,44 @@ pub fn base64(bytes: &[u8]) -> String {
     out
 }
 
+/// Decodes standard base64 (padding optional, whitespace ignored).
+pub fn base64_decode(text: &str) -> IdeResult<Vec<u8>> {
+    let mut out = Vec::with_capacity(text.len() / 4 * 3);
+    let (mut acc, mut bits) = (0u32, 0u32);
+    for b in text.bytes() {
+        let v = match b {
+            b'A'..=b'Z' => b - b'A',
+            b'a'..=b'z' => b - b'a' + 26,
+            b'0'..=b'9' => b - b'0' + 52,
+            b'+' => 62,
+            b'/' => 63,
+            b'=' => break,
+            b if b.is_ascii_whitespace() => continue,
+            _ => return Err(IdeError::invalid("invalid base64 data")),
+        };
+        acc = (acc << 6) | u32::from(v);
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((acc >> bits) as u8);
+            acc &= (1 << bits) - 1;
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn base64_round_trips() {
+        for input in [&b""[..], b"f", b"fo", b"foo", b"foob", b"fooba", b"foobar", &[0xff, 0xfe, 0x00, 0x80]] {
+            assert_eq!(base64_decode(&base64(input)).unwrap(), input);
+        }
+        assert_eq!(base64_decode("Zm9v\nYmFy").unwrap(), b"foobar");
+        assert!(base64_decode("Zm9v!").is_err());
+    }
 
     #[test]
     fn base64_matches_rfc4648_vectors() {

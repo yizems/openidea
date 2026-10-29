@@ -4907,5 +4907,12 @@
   "Unarchive": "取消归档",
   "Unarchive Agent Tasks": "取消归档 Agent 任务",
   "Cannot unarchive agent tasks": "无法取消归档 Agent 任务",
-  "Unarchive ({archived})": "取消归档（{archived}）"
+  "Unarchive ({archived})": "取消归档（{archived}）",
+  "Markdown Paste": "Markdown 粘贴",
+  "Pasting an image into a Markdown file saves it in the folder below and inserts a link to it. Other files are pasted as their file names.": "在 Markdown 文件中粘贴图片时，将其保存到下方的文件夹并插入指向它的链接；其他文件则直接粘贴文件名。",
+  "Save pasted images next to the Markdown file": "将粘贴的图片保存到 Markdown 文件旁",
+  "Relative to the Markdown file's folder. Created when missing.": "相对于 Markdown 文件所在的文件夹，不存在时自动创建。",
+  "Pasted image name prefix": "粘贴图片的名称前缀",
+  "Image data is saved as prefix-date-time.png; a number is added when the name is taken.": "图片数据以“前缀-日期-时间.png”命名保存，重名时自动追加序号。",
+  "Cannot paste into the Markdown file: {message}": "无法粘贴到 Markdown 文件：  {message}"
 }
