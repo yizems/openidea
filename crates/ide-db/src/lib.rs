@@ -1,6 +1,7 @@
 //! Database tools: data sources ([`source`]), connections and statement
 //! execution ([`conn`]), introspection, table data paging / editing ([`sql`])
-//! and statement splitting ([`split`]), for SQLite, PostgreSQL and MySQL/MariaDB.
+//! and statement splitting ([`split`]), for SQLite, PostgreSQL, MySQL/MariaDB,
+//! SQL Server, and Oracle / Db2 through ODBC.
 
 pub mod conn;
 pub mod history;
@@ -550,6 +551,8 @@ impl DbManager {
             DbDriver::Postgres => "SELECT version()",
             DbDriver::Mysql => "SELECT CONCAT(@@version_comment, ' ', VERSION())",
             DbDriver::SqlServer => "SELECT @@VERSION",
+            DbDriver::Oracle => "SELECT banner FROM v$version WHERE rownum = 1",
+            DbDriver::Db2 => "SELECT service_level FROM TABLE (SYSPROC.ENV_GET_INST_INFO()) AS i",
         };
         let v = pool.rows(version, 1).await.ok().and_then(|r| r.into_iter().next()?.into_iter().next()?);
         pool.close().await;
@@ -869,6 +872,99 @@ impl DbManager {
                     .collect::<Vec<_>>();
                 let indexes = cells(pool.rows(&sql::postgres_ddl_indexes(oid), MAX_META_ROWS).await?, 0);
                 Ok(sql::postgres_table_ddl(schema, name, &columns, &constraints, &indexes))
+            }
+            DbDriver::Oracle => {
+                let kind = cells(
+                    pool.rows(
+                        &format!(
+                            "SELECT object_type FROM all_objects WHERE owner = {} AND object_name = {} \
+                             AND object_type IN ('TABLE', 'VIEW')",
+                            sql::quote_literal(driver, schema),
+                            sql::quote_literal(driver, name)
+                        ),
+                        1,
+                    )
+                    .await?,
+                    0,
+                )
+                .into_iter()
+                .next();
+                let Some(kind) = kind else { return Err(missing()) };
+                let q = format!(
+                    "SELECT DBMS_METADATA.GET_DDL('{kind}', {}, {}) FROM dual",
+                    sql::quote_literal(driver, name),
+                    sql::quote_literal(driver, schema)
+                );
+                let ddl = cells(pool.rows(&q, 1).await?, 0).into_iter().next();
+                ddl.map(|d| format!("{};\n", d.trim_end().trim_end_matches(';'))).ok_or_else(missing)
+            }
+            DbDriver::Db2 => {
+                let kind = cells(
+                    pool.rows(
+                        &format!(
+                            "SELECT type FROM syscat.tables WHERE tabschema = {} AND tabname = {}",
+                            sql::quote_literal(driver, schema),
+                            sql::quote_literal(driver, name)
+                        ),
+                        1,
+                    )
+                    .await?,
+                    0,
+                )
+                .into_iter()
+                .next();
+                let Some(kind) = kind else { return Err(missing()) };
+                if kind == "V" || kind == "S" {
+                    let text = cells(
+                        pool.rows(
+                            &format!(
+                                "SELECT text FROM syscat.views WHERE viewschema = {} AND viewname = {}",
+                                sql::quote_literal(driver, schema),
+                                sql::quote_literal(driver, name)
+                            ),
+                            1,
+                        )
+                        .await?,
+                        0,
+                    )
+                    .into_iter()
+                    .next();
+                    return text.map(|d| format!("{};\n", d.trim_end().trim_end_matches(';'))).ok_or_else(missing);
+                }
+                // Db2 has no `SHOW CREATE TABLE`: rebuild a plain `CREATE TABLE` from the
+                // catalog (no indexes or non-primary-key constraints, unlike PostgreSQL's).
+                let rows = pool.rows(&sql::columns(driver, schema, name), MAX_META_ROWS).await?;
+                if rows.is_empty() {
+                    return Err(missing());
+                }
+                let mut defs = Vec::new();
+                let mut pk = Vec::new();
+                for r in rows {
+                    let mut it = r.into_iter();
+                    let (Some(col), Some(ty)) = (it.next().flatten(), it.next().flatten()) else { continue };
+                    let nullable = flag(&it.next().flatten());
+                    let default = it.next().flatten();
+                    let is_pk = flag(&it.next().flatten());
+                    let mut def = format!("{} {ty}", sql::quote_ident(driver, &col));
+                    if !nullable {
+                        def.push_str(" NOT NULL");
+                    }
+                    if let Some(d) = default {
+                        def.push_str(&format!(" DEFAULT {d}"));
+                    }
+                    if is_pk {
+                        pk.push(sql::quote_ident(driver, &col));
+                    }
+                    defs.push(def);
+                }
+                if !pk.is_empty() {
+                    defs.push(format!("PRIMARY KEY ({})", pk.join(", ")));
+                }
+                Ok(format!(
+                    "CREATE TABLE {} (\n    {}\n);\n",
+                    sql::qualified(driver, schema, name),
+                    defs.join(",\n    ")
+                ))
             }
         }
     }

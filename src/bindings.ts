@@ -2096,6 +2096,13 @@ export type DataSource = {
 	user?: string,
 	/**  SQLite database file (absolute, or relative to the project root). */
 	file?: IpcPath | null,
+	/**
+	 *  [`DbDriver::Oracle`] / [`DbDriver::Db2`]: the name of the ODBC driver to connect
+	 *  with, as registered with the system's ODBC driver manager (`odbcinst -q -d`
+	 *  on Linux / macOS). OpenIDEA does not bundle one: install Oracle's or IBM's own
+	 *  ODBC driver first.
+	 */
+	odbcDriver?: string,
 	ssl?: DbSslMode,
 	/**  Keep the password in the saved passwords. */
 	savePassword?: boolean,
@@ -2181,7 +2188,14 @@ export type DbDriver = "sqlite" | "postgres" |
 /**  MySQL and MariaDB. */
 "mysql" | 
 /**  Microsoft SQL Server. */
-"sqlServer";
+"sqlServer" | 
+/**
+ *  Oracle Database, through the system's ODBC driver manager and Oracle's own ODBC
+ *  driver (no pure Rust driver exists). See [`DataSource::odbc_driver`].
+ */
+"oracle" | 
+/**  IBM Db2, through ODBC like [`DbDriver::Oracle`]. */
+"db2";
 
 /**  `schema.table (columns) REFERENCES ref_schema.ref_table (ref_columns)`. */
 export type DbForeignKey = {
@@ -2260,7 +2274,8 @@ export type DbPlanProperty = {
 /**
  *  Advanced tab: a driver property. PostgreSQL: run-time parameters (and
  *  `application_name`); MySQL: session variables (and `charset`, `collation`);
- *  SQLite: pragmas. See [`crate::conn`].
+ *  SQLite: pragmas; Oracle / Db2 (ODBC): extra `key=value` connection string
+ *  attributes. See [`crate::conn`].
  */
 export type DbProperty = {
 	name?: string,
