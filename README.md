@@ -72,3 +72,15 @@ Database tool window notes, including Oracle Instant Client setup, are in
 [`docs/databases.md`](docs/databases.md).
 
 <sub>Not affiliated with JetBrains. IntelliJ IDEA is a trademark of JetBrains s.r.o.</sub>
+
+## me
+
+```
+pnpm tauri build --target aarch64-apple-darwin
+
+target/aarch64-apple-darwin/release/bundle/macos/OpenIDEA.app/Contents/MacOS/openidea: Mach-O 64-bit executable arm64
+
+ditto -c -k --sequesterRsrc --keepParent \
+  target/aarch64-apple-darwin/release/bundle/macos/OpenIDEA.app \
+  OpenIDEA.zip
+```
