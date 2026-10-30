@@ -65,6 +65,78 @@ OPENIDEA_TEST_PYTHON_SECOND=/second/env/bin/python \
 cargo test -p ide-notebook --test kernel_runtime -- --ignored --test-threads=1
 ```
 
+### Database drivers
+
+SQLite, PostgreSQL, MySQL/MariaDB and SQL Server connect out of the box: their drivers
+are pure Rust (`sqlx`) or bundled (`tiberius`), no extra software needed.
+
+Oracle and Db2 have no such driver, so OpenIDEA connects to them through the system's
+**ODBC driver manager** instead. This has two consequences:
+
+- **Building (and running) OpenIDEA at all requires unixODBC to be installed**, even if
+  you never connect to Oracle or Db2: `ide-db` links against it unconditionally.
+  - macOS: `brew install unixodbc`
+  - Debian/Ubuntu: `sudo apt install unixodbc`
+  - Fedora/RHEL: `sudo dnf install unixODBC`
+  - Windows: nothing to install, it ships with the OS.
+- **Connecting to an actual Oracle or Db2 server additionally needs that vendor's own
+  ODBC driver** (Oracle Instant Client's ODBC component, or IBM's Data Server Driver),
+  which is proprietary and not bundled, detailed below.
+
+#### Adding the Oracle driver
+
+1. Download the **Basic** and **ODBC** packages for your platform from
+   [Oracle Instant Client Downloads](https://www.oracle.com/database/technologies/instant-client/downloads.html)
+   (an Oracle account is required). Unzip both into the same directory, e.g.
+   `/opt/oracle/instantclient_21_8`.
+2. Register the driver with unixODBC using the script the ODBC package ships with:
+   ```sh
+   cd /opt/oracle/instantclient_21_8
+   ./odbc_update_ini.sh / "$(pwd)"
+   ```
+   On Windows, run the bundled `odbc_install.exe` instead; it registers the driver with
+   the Windows ODBC Data Source Administrator.
+3. Make sure the Oracle client libraries are on the loader path whenever OpenIDEA runs,
+   e.g. `export LD_LIBRARY_PATH=/opt/oracle/instantclient_21_8:$LD_LIBRARY_PATH` (Linux)
+   or the macOS/Windows equivalent — see the Instant Client README for your platform.
+4. Run `odbcinst -q -d` (Linux/macOS) to confirm the driver is registered and note its
+   exact name, e.g. `[Oracle 21 ODBC driver]`.
+
+#### Adding the Db2 driver
+
+1. Download the **IBM Data Server Driver for ODBC and CLI** from
+   [IBM Fix Central](https://www.ibm.com/support/fixcentral/) (an IBM account is
+   required). Extract it and run the installer it ships with (`installDSDriver` on
+   Linux/macOS, the `.exe` on Windows); this both unpacks the client libraries and
+   registers the driver with the system's ODBC driver manager.
+2. Run `odbcinst -q -d` (Linux/macOS) or open the ODBC Data Source Administrator
+   (Windows) to confirm the driver is registered and note its exact name, e.g.
+   `[IBM DB2 ODBC DRIVER - DB2COPY1]`.
+
+Exact script names and output differ by the driver version you download; follow the
+README bundled with your download if it diverges from the above.
+
+#### Configuring the data source in OpenIDEA
+
+In **New ▸ Data Source ▸ Oracle** (or **Db2**):
+
+- **ODBC driver**: paste the exact name `odbcinst -q -d` printed in step 4/2 above.
+- **Host** / **Port**: the database server (Oracle default port `1521`, Db2 `50000`).
+- **Database**: Oracle's service name (`ORCLPDB1`, …) or Db2's cataloged database
+  alias/name — whatever you'd otherwise put after `host:port/` in a connection string.
+- **User** / **Password**: as usual.
+
+Then use **Test Connection** before saving: if the ODBC driver name is wrong or the
+driver isn't on the loader path, this is where it will report it.
+
+The live Oracle/Db2 integration tests are opt-in the same way, each needing a
+throwaway database and an installed driver:
+
+```sh
+OPENIDEA_TEST_ORACLE=host:port:service:user:password:driver cargo test -p ide-db --test oracle
+OPENIDEA_TEST_DB2=host:port:database:user:password:driver cargo test -p ide-db --test db2
+```
+
 ## License
 
 [Apache 2.0](LICENSE). Bundled third-party assets are listed in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).

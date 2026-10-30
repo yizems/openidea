@@ -37,6 +37,10 @@ pub fn explain_statement(driver: DbDriver, statement: &str) -> String {
         DbDriver::Postgres => format!("EXPLAIN (FORMAT JSON) {s}"),
         DbDriver::Mysql => format!("EXPLAIN {s}"),
         DbDriver::SqlServer => format!("SET SHOWPLAN_TEXT ON; {s}"),
+        // Reading the plan back requires a session-specific `SELECT` from `PLAN_TABLE`
+        // (Oracle) or the Db2 explain tables, both of which must pre-exist; like
+        // `DbDriver::SqlServer` above, [`parse`] does not parse a tree from this yet.
+        DbDriver::Oracle | DbDriver::Db2 => format!("EXPLAIN PLAN FOR {s}"),
     }
 }
 
@@ -60,7 +64,7 @@ pub fn parse(driver: DbDriver, result: &QueryResult) -> IdeResult<Vec<PlanNode>>
             let names: Vec<&str> = result.columns.iter().map(|c| c.name.as_str()).collect();
             Ok(mysql(&names, &result.rows))
         }
-        DbDriver::SqlServer => Ok(Vec::new()),
+        DbDriver::SqlServer | DbDriver::Oracle | DbDriver::Db2 => Ok(Vec::new()),
     }
 }
 
@@ -200,6 +204,12 @@ mod tests {
         assert_eq!(explain_statement(DbDriver::Postgres, " select 1 "), "EXPLAIN (FORMAT JSON) select 1");
         assert_eq!(explain_statement(DbDriver::Mysql, "select 1"), "EXPLAIN select 1");
         assert_eq!(explain_statement(DbDriver::SqlServer, "select 1"), "SET SHOWPLAN_TEXT ON; select 1");
+        assert_eq!(explain_statement(DbDriver::Oracle, "select 1;"), "EXPLAIN PLAN FOR select 1");
+        assert_eq!(explain_statement(DbDriver::Db2, "select 1;"), "EXPLAIN PLAN FOR select 1");
+        let empty = result(&[], vec![]);
+        assert_eq!(parse(DbDriver::SqlServer, &empty).unwrap(), Vec::new());
+        assert_eq!(parse(DbDriver::Oracle, &empty).unwrap(), Vec::new());
+        assert_eq!(parse(DbDriver::Db2, &empty).unwrap(), Vec::new());
     }
 
     #[test]
