@@ -9,6 +9,7 @@ import {
   IpcError,
   type DataSource,
   type DbColor,
+  type DbDriver,
   type DbIntrospection,
   type DbOptions,
   type DbProperty,
@@ -72,7 +73,7 @@ const SSH_AUTH: Array<SelectOption<SshAuth>> = [
 ];
 
 /** Driver property names the Advanced tab suggests, and what the backend does with them. */
-const PROPERTIES: Record<string, { names: string[]; hint: string }> = {
+const PROPERTIES: Record<DbDriver, { names: string[]; hint: string }> = {
   postgres: {
     names: [
       "statement_timeout",
@@ -96,6 +97,14 @@ const PROPERTIES: Record<string, { names: string[]; hint: string }> = {
   sqlServer: {
     names: ["connect_timeout"],
     hint: "Connection settings for SQL Server.",
+  },
+  oracle: {
+    names: ["connect_timeout"],
+    hint: "Appended as extra key=value ODBC connection string attributes (driver-specific). connect_timeout is in seconds.",
+  },
+  db2: {
+    names: ["connect_timeout", "CurrentSchema"],
+    hint: "Appended as extra key=value ODBC connection string attributes (driver-specific). connect_timeout is in seconds.",
   },
 };
 
@@ -376,6 +385,7 @@ export function SourceDialog({
   const vendor = vendorOf(s);
   const sqlite = s.driver === "sqlite";
   const postgres = s.driver === "postgres";
+  const odbc = s.driver === "oracle" || s.driver === "db2";
   const urlOnly = !sqlite && !!s.urlOnly;
   const parsedUrl = urlOnly ? parseSourceUrl(s.url ?? "") : null;
   const urlValid = !!parsedUrl && parsedUrl.source.driver === s.driver;
@@ -479,7 +489,7 @@ export function SourceDialog({
     { id: "advanced", label: "Advanced" },
   ];
   const current = tabs.some((t) => t.id === tab) ? tab : "general";
-  const props = PROPERTIES[s.driver ?? "sqlite"]!;
+  const props = PROPERTIES[s.driver ?? "sqlite"];
 
   const general = (
     <>
@@ -487,6 +497,26 @@ export function SourceDialog({
         <T>Driver:</T>
       </span>
       <Select aria-label="Data source type" value={vendor.id} options={TYPES} onChange={setType} />
+      {odbc && (
+        <>
+          <label className={styles.formLabel} htmlFor="db-odbc-driver">
+            <T>ODBC driver:</T>
+          </label>
+          <Input
+            id="db-odbc-driver"
+            value={s.odbcDriver ?? ""}
+            placeholder="name registered with the system's ODBC driver manager"
+            onChange={(e) => set({ odbcDriver: e.target.value })}
+          />
+          <span />
+          <span className={styles.formHint}>
+            <T>
+              OpenIDEA does not bundle a driver: install one (e.g. Oracle Instant Client, IBM Data Server Driver), then
+              list installed drivers with `odbcinst -q -d` and paste the name here.
+            </T>
+          </span>
+        </>
+      )}
       {sqlite ? (
         <FileField
           id="db-file"

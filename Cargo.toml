@@ -99,6 +99,10 @@ rustls-platform-verifier = "0.7"
 sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "tls-rustls-ring-webpki", "sqlite", "postgres", "mysql"] }
 tiberius = { version = "0.13", default-features = false, features = ["tds73", "rustls", "sql-browser-tokio"] }
 bb8 = "0.9"
+# Oracle and DB2 (no pure-Rust driver exists): the system's ODBC driver manager
+# (unixODBC / iODBC / Windows ODBC) plus the vendor's own ODBC driver, installed
+# separately. See `ide-db::conn`'s `OdbcConnectionManager`.
+odbc-api = "29"
 uuid = { version = "1", features = ["v4"] }
 
 # testing
