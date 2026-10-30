@@ -177,6 +177,37 @@ export const DATA_TYPES: Record<DbDriver, string[]> = {
     "VARBINARY",
     "XML",
   ],
+  oracle: [
+    "NUMBER",
+    "VARCHAR2",
+    "NVARCHAR2",
+    "CHAR",
+    "CLOB",
+    "BLOB",
+    "DATE",
+    "TIMESTAMP",
+    "RAW",
+    "LONG",
+    "FLOAT",
+    "BINARY_FLOAT",
+    "BINARY_DOUBLE",
+  ],
+  db2: [
+    "INTEGER",
+    "BIGINT",
+    "SMALLINT",
+    "DECIMAL",
+    "VARCHAR",
+    "CHAR",
+    "CLOB",
+    "BLOB",
+    "DATE",
+    "TIME",
+    "TIMESTAMP",
+    "DOUBLE",
+    "REAL",
+    "GRAPHIC",
+  ],
 };
 
 const f = (name: string, params: string, returns?: string, aggregate?: boolean): SqlFunction => ({
@@ -297,6 +328,9 @@ const FUNCTIONS: Record<DbDriver, SqlFunction[]> = {
     f("row_number", "", "bigint"),
     f("rank", "", "bigint"),
   ],
+  // No dialect-specific additions yet (DECODE, NVL, TO_DATE… for Oracle; VARCHAR_FORMAT… for Db2).
+  oracle: COMMON,
+  db2: COMMON,
 };
 
 export function functions(driver: DbDriver): SqlFunction[] {

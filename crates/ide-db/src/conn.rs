@@ -9,6 +9,10 @@ use bb8::ManageConnection;
 use bb8::Pool as Bb8Pool;
 use futures::StreamExt;
 use ide_core::{CancellationToken, IdeError, IdeResult, error::ErrorKind};
+use odbc_api::{
+    ConnectionOptions as OdbcConnectionOptions, Cursor as _, DataType as OdbcDataType, ResultSetMetadata as _,
+    buffers::TextRowSet, escape_attribute_value as odbc_escape,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use sqlx::{
@@ -106,6 +110,8 @@ pub enum Pool {
     Postgres(PgPool),
     Mysql(MySqlPool),
     SqlServer(Bb8Pool<MssqlConnectionManager>),
+    Oracle(Bb8Pool<OdbcConnectionManager>),
+    Db2(Bb8Pool<OdbcConnectionManager>),
 }
 
 /// Runs `$body` with `$p` bound to the concrete pool of each driver.
@@ -115,7 +121,7 @@ macro_rules! with_pool {
             Pool::Sqlite($p) => $body,
             Pool::Postgres($p) => $body,
             Pool::Mysql($p) => $body,
-            Pool::SqlServer(_) => unreachable!(),
+            Pool::SqlServer(_) | Pool::Oracle(_) | Pool::Db2(_) => unreachable!(),
         }
     };
 }
@@ -161,6 +167,253 @@ fn mssql_pool_err(e: bb8::RunError<tiberius::error::Error>) -> IdeError {
         bb8::RunError::User(e) => mssql_err(e),
         bb8::RunError::TimedOut => IdeError::new(ErrorKind::Io, "timed out connecting to the database"),
     }
+}
+
+// --- Oracle / Db2, through ODBC (`odbc-api`) -------------------------------------------
+//
+// Neither has a pure-Rust driver; both go through the system's ODBC driver manager and
+// the vendor's own ODBC driver (installed separately, not bundled). ODBC calls are
+// blocking, so every one of them runs in `spawn_blocking`. The connection is `take()`n
+// out of its slot first and put back only once the blocking call returns: if the
+// `execute`/`rows` future is dropped for cancellation, the slot is left `None` (so the
+// pool discards it instead of reusing a connection whose statement may still be
+// running on its abandoned blocking thread, which simply disconnects once that
+// statement finally returns).
+
+/// bb8 marks a connection broken by looking for `None` after an operation `take()`s it.
+pub struct OdbcConnection(Option<odbc_api::Connection<'static>>);
+
+impl std::ops::Deref for OdbcConnection {
+    type Target = odbc_api::Connection<'static>;
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().expect("live ODBC connection")
+    }
+}
+
+/// Why connecting, or checking liveness, failed.
+#[derive(Debug)]
+pub enum OdbcManageError {
+    Odbc(odbc_api::Error),
+    /// The blocking task panicked.
+    Join(tokio::task::JoinError),
+}
+
+pub struct OdbcConnectionManager {
+    pub connection_string: String,
+    /// Statements run on every new connection (startup script…).
+    pub init: Arc<Vec<String>>,
+}
+
+/// Runs blocking ODBC work on `wrapper`'s connection: taken out first, so cancelling the
+/// caller (dropping this future) leaves `wrapper` holding `None` (see module notes above).
+async fn odbc_run<T: Send + 'static>(
+    wrapper: &mut OdbcConnection,
+    f: impl FnOnce(&odbc_api::Connection<'static>) -> IdeResult<T> + Send + 'static,
+) -> IdeResult<T> {
+    let conn = wrapper.0.take().ok_or_else(|| IdeError::new(ErrorKind::Io, "the connection was discarded"))?;
+    let (conn, r) = tokio::task::spawn_blocking(move || {
+        let r = f(&conn);
+        (conn, r)
+    })
+    .await
+    .map_err(|e| IdeError::internal(e.to_string()))?;
+    wrapper.0 = Some(conn);
+    r
+}
+
+impl ManageConnection for OdbcConnectionManager {
+    type Connection = OdbcConnection;
+    type Error = OdbcManageError;
+
+    async fn connect(&self) -> Result<Self::Connection, Self::Error> {
+        let connection_string = self.connection_string.clone();
+        let init = self.init.clone();
+        tokio::task::spawn_blocking(move || {
+            let env = odbc_api::environment().map_err(OdbcManageError::Odbc)?;
+            let conn = env
+                .connect_with_connection_string(&connection_string, OdbcConnectionOptions::default())
+                .map_err(OdbcManageError::Odbc)?;
+            for sql in init.iter() {
+                conn.execute(sql, (), None).map_err(OdbcManageError::Odbc)?;
+            }
+            Ok(OdbcConnection(Some(conn)))
+        })
+        .await
+        .map_err(OdbcManageError::Join)?
+    }
+
+    async fn is_valid(&self, conn: &mut Self::Connection) -> Result<(), Self::Error> {
+        let c = conn.0.take().ok_or(OdbcManageError::Odbc(odbc_api::Error::NoDiagnostics { function: "is_valid" }))?;
+        let (c, dead) = tokio::task::spawn_blocking(move || {
+            let dead = c.is_dead();
+            (c, dead)
+        })
+        .await
+        .map_err(OdbcManageError::Join)?;
+        conn.0 = Some(c);
+        match dead.map_err(OdbcManageError::Odbc)? {
+            false => Ok(()),
+            true => Err(OdbcManageError::Odbc(odbc_api::Error::NoDiagnostics { function: "is_valid" })),
+        }
+    }
+
+    fn has_broken(&self, conn: &mut Self::Connection) -> bool {
+        conn.0.is_none()
+    }
+}
+
+fn odbc_err(e: odbc_api::Error) -> IdeError {
+    if let odbc_api::Error::Diagnostics { record, .. } = &e {
+        // SQLSTATE class 28 ("invalid authorization specification") covers bad credentials
+        // for every ODBC driver, Oracle's and Db2's included.
+        let auth = record.state.as_str().starts_with("28");
+        return IdeError::new(
+            if auth { ErrorKind::PermissionDenied } else { ErrorKind::InvalidInput },
+            record.to_string(),
+        );
+    }
+    IdeError::new(ErrorKind::Protocol, e.to_string())
+}
+
+fn odbc_manage_err(e: OdbcManageError) -> IdeError {
+    match e {
+        OdbcManageError::Odbc(e) => odbc_err(e),
+        OdbcManageError::Join(e) => IdeError::internal(e.to_string()),
+    }
+}
+
+fn odbc_pool_err(e: bb8::RunError<OdbcManageError>) -> IdeError {
+    match e {
+        bb8::RunError::User(e) => odbc_manage_err(e),
+        bb8::RunError::TimedOut => IdeError::new(ErrorKind::Io, "timed out connecting to the database"),
+    }
+}
+
+/// The ODBC connection string for `source` (Oracle's `DBQ=host:port/service` Easy Connect
+/// form, or Db2's `DATABASE=/HOSTNAME=/PORT=` keywords), with `setup.params` appended as
+/// extra `key=value` attributes (the data source's Advanced tab properties).
+fn odbc_connection_string(
+    source: &DataSource,
+    password: Option<&str>,
+    params: &[(String, String)],
+) -> IdeResult<String> {
+    let driver_name = source.odbc_driver.trim();
+    if driver_name.is_empty() {
+        return Err(IdeError::invalid(
+            "set the ODBC driver name (the \"ODBC driver\" field, General tab): the name registered with the \
+             system's ODBC driver manager, e.g. `odbcinst -q -d`. OpenIDEA does not bundle an Oracle or Db2 driver.",
+        ));
+    }
+    let mut s = format!("Driver={{{}}};", odbc_escape(driver_name));
+    let host = if source.host.trim().is_empty() { "localhost" } else { source.host.trim() };
+    match source.driver {
+        DbDriver::Oracle => {
+            let service = source.database.trim();
+            let port = source.port.unwrap_or(1521);
+            let dbq = if service.is_empty() { format!("{host}:{port}") } else { format!("{host}:{port}/{service}") };
+            s += &format!("DBQ={};", odbc_escape(&dbq));
+        }
+        DbDriver::Db2 => {
+            s += &format!(
+                "DATABASE={};HOSTNAME={};PORT={};PROTOCOL=TCPIP;",
+                odbc_escape(source.database.trim()),
+                odbc_escape(host),
+                source.port.unwrap_or(50000)
+            );
+            if !matches!(source.ssl, DbSslMode::Disable) {
+                s += "SECURITY=SSL;";
+            }
+        }
+        _ => unreachable!("odbc_connection_string is only called for Oracle and Db2"),
+    }
+    if !source.user.trim().is_empty() {
+        s += &format!("UID={};", odbc_escape(source.user.trim()));
+    }
+    if let Some(p) = password {
+        s += &format!("PWD={};", odbc_escape(p));
+    }
+    for (k, v) in params {
+        s += &format!("{}={};", odbc_escape(k), odbc_escape(v));
+    }
+    Ok(s)
+}
+
+/// A human readable type name for [`ResultColumn::type_name`] (the ODBC standard type,
+/// not the vendor's native one — unlike [`sql::columns`], which reads the catalog).
+fn odbc_type_name(ty: OdbcDataType) -> String {
+    let len = |l: Option<std::num::NonZeroUsize>| l.map_or_else(|| "?".to_owned(), |n| n.to_string());
+    match ty {
+        OdbcDataType::Unknown => "UNKNOWN".to_owned(),
+        OdbcDataType::Char { length } => format!("CHAR({})", len(length)),
+        OdbcDataType::WChar { length } => format!("NCHAR({})", len(length)),
+        OdbcDataType::Varchar { length } => format!("VARCHAR({})", len(length)),
+        OdbcDataType::WVarchar { length } => format!("NVARCHAR({})", len(length)),
+        OdbcDataType::LongVarchar { .. } => "LONG VARCHAR".to_owned(),
+        OdbcDataType::WLongVarchar { .. } => "LONG NVARCHAR".to_owned(),
+        OdbcDataType::Numeric { precision, scale } => format!("NUMERIC({precision},{scale})"),
+        OdbcDataType::Decimal { precision, scale } => format!("DECIMAL({precision},{scale})"),
+        OdbcDataType::Integer => "INTEGER".to_owned(),
+        OdbcDataType::SmallInt => "SMALLINT".to_owned(),
+        OdbcDataType::Float { precision } => format!("FLOAT({precision})"),
+        OdbcDataType::Real => "REAL".to_owned(),
+        OdbcDataType::Double => "DOUBLE".to_owned(),
+        OdbcDataType::Date => "DATE".to_owned(),
+        OdbcDataType::Time { .. } => "TIME".to_owned(),
+        OdbcDataType::Timestamp { .. } => "TIMESTAMP".to_owned(),
+        OdbcDataType::BigInt => "BIGINT".to_owned(),
+        OdbcDataType::TinyInt => "TINYINT".to_owned(),
+        OdbcDataType::Bit => "BIT".to_owned(),
+        OdbcDataType::Varbinary { length } => format!("VARBINARY({})", len(length)),
+        OdbcDataType::Binary { length } => format!("BINARY({})", len(length)),
+        OdbcDataType::LongVarbinary { .. } => "LONG VARBINARY".to_owned(),
+        OdbcDataType::Other { data_type, .. } => format!("{data_type:?}"),
+    }
+}
+
+/// The text of one cell: the driver already hex-encodes true binary data when it is
+/// bound (as here) as character data, per the ODBC conversion rules; `binary` only
+/// controls the `0x` prefix this crate's grids otherwise use for such values.
+fn odbc_cell(bytes: &[u8], binary: bool) -> String {
+    let text = String::from_utf8_lossy(bytes);
+    if binary { format!("0x{}", text.to_ascii_uppercase()) } else { text.into_owned() }
+}
+
+/// A generous but bounded per-cell size: `TextRowSet` needs an upper bound to size its
+/// buffers, and some drivers report none for LOB columns.
+const ODBC_MAX_CELL_BYTES: usize = 1 << 20;
+
+/// Runs `sql` on `conn` and reads up to `max` rows as text (see [`Pool::rows`] / [`Held::execute`]).
+fn odbc_fetch(conn: &odbc_api::Connection<'static>, sql: &str, max: usize) -> IdeResult<Fetched> {
+    let mut stmt = conn.preallocate().map_err(odbc_err)?;
+    let Some(mut cursor) = stmt.execute(sql, ()).map_err(odbc_err)? else {
+        let affected = stmt.row_count().map_err(odbc_err)?;
+        return Ok((Vec::new(), Vec::new(), affected.map(|n| n as u64), false, Some(Instant::now())));
+    };
+    let first = Some(Instant::now());
+    let n = cursor.num_result_cols().map_err(odbc_err)? as usize;
+    let mut columns = Vec::with_capacity(n);
+    let mut binary = Vec::with_capacity(n);
+    for i in 1..=n as u16 {
+        let name = cursor.col_name(i).map_err(odbc_err)?;
+        let ty = cursor.col_data_type(i).map_err(odbc_err)?;
+        columns.push(ResultColumn { name, type_name: odbc_type_name(ty) });
+        binary.push(matches!(
+            ty,
+            OdbcDataType::Binary { .. } | OdbcDataType::Varbinary { .. } | OdbcDataType::LongVarbinary { .. }
+        ));
+    }
+    let buffer = TextRowSet::for_cursor(max + 1, &mut cursor, Some(ODBC_MAX_CELL_BYTES)).map_err(odbc_err)?;
+    let mut block = cursor.bind_buffer(buffer).map_err(odbc_err)?;
+    let mut rows = Vec::new();
+    let mut has_more = false;
+    if let Some(batch) = block.fetch().map_err(odbc_err)? {
+        let total = batch.num_rows();
+        has_more = total > max;
+        for r in 0..total.min(max) {
+            rows.push((0..n).map(|c| batch.at(c, r).map(|b| odbc_cell(b, binary[c]))).collect());
+        }
+    }
+    Ok((columns, rows, None, has_more, first))
 }
 
 const DAYS_1900_01_01: i64 = 693_595;
@@ -385,6 +638,30 @@ async fn mssql_command(conn: &mut MssqlClient, sql: &str) -> IdeResult<()> {
     Ok(())
 }
 
+/// Runs [`crate::conn::begin_statement`]'s `"BEGIN"` sentinel, `"COMMIT"` or `"ROLLBACK"`
+/// (the only texts [`Held::command`] ever passes here) as the matching ODBC connection
+/// attribute / transaction call, since Oracle and Db2 have no such SQL statements.
+///
+/// The caller (`Store::run` / `Store::finish_transaction`) always returns the connection
+/// to the pool right after a `"COMMIT"` / `"ROLLBACK"` (a new one is acquired and put
+/// back into manual-commit mode for the data source's next transaction), so both restore
+/// autocommit before this function returns — a connection must never sit in the pool with
+/// autocommit left off, or an unrelated one-off statement would silently run inside it.
+async fn odbc_command(conn: &mut OdbcConnection, sql: &str) -> IdeResult<()> {
+    let sql = sql.to_owned();
+    odbc_run(conn, move |c| {
+        match sql.as_str() {
+            "BEGIN" => c.set_autocommit(false),
+            "COMMIT" => c.commit().and_then(|()| c.set_autocommit(true)),
+            "ROLLBACK" => c.rollback().and_then(|()| c.set_autocommit(true)),
+            // Not reached: see this function's doc comment.
+            _ => return Err(IdeError::internal(format!("unexpected command: {sql}"))),
+        }
+        .map_err(odbc_err)
+    })
+    .await
+}
+
 async fn mssql_fetch(conn: &mut MssqlClient, sql: &str, max: usize) -> IdeResult<Fetched> {
     let mut stream = conn.simple_query(sql).await.map_err(mssql_err)?;
     let first = Some(Instant::now());
@@ -527,6 +804,8 @@ impl Pool {
             Pool::Postgres(_) => DbDriver::Postgres,
             Pool::Mysql(_) => DbDriver::Mysql,
             Pool::SqlServer(_) => DbDriver::SqlServer,
+            Pool::Oracle(_) => DbDriver::Oracle,
+            Pool::Db2(_) => DbDriver::Db2,
         }
     }
 
@@ -695,19 +974,32 @@ impl Pool {
                 conn.query("SELECT 1", &[]).await.map_err(mssql_err)?.into_results().await.map_err(mssql_err)?;
                 Ok(Pool::SqlServer(pool))
             }
+            DbDriver::Oracle | DbDriver::Db2 => {
+                let connection_string = odbc_connection_string(source, password, &setup.params)?;
+                let manager = OdbcConnectionManager { connection_string, init };
+                let pool = bb8::Pool::builder()
+                    .max_size(MAX)
+                    .connection_timeout(timeout)
+                    .build(manager)
+                    .await
+                    .map_err(odbc_manage_err)?;
+                // Open one connection now so bad settings (and a missing ODBC driver) fail here.
+                drop(pool.get_owned().await.map_err(odbc_pool_err)?);
+                Ok(if source.driver == DbDriver::Oracle { Pool::Oracle(pool) } else { Pool::Db2(pool) })
+            }
         }
     }
 
     pub async fn close(&self) {
         match self {
-            Pool::SqlServer(_) => {}
+            Pool::SqlServer(_) | Pool::Oracle(_) | Pool::Db2(_) => {}
             _ => with_pool!(self, p => p.close().await),
         }
     }
 
     pub fn is_closed(&self) -> bool {
         match self {
-            Pool::SqlServer(_) => false,
+            Pool::SqlServer(_) | Pool::Oracle(_) | Pool::Db2(_) => false,
             _ => with_pool!(self, p => p.is_closed()),
         }
     }
@@ -718,6 +1010,11 @@ impl Pool {
             Pool::SqlServer(p) => {
                 let mut conn = p.get_owned().await.map_err(mssql_pool_err)?;
                 mssql_fetch(&mut conn, sql, max).await
+            }
+            Pool::Oracle(p) | Pool::Db2(p) => {
+                let mut conn = p.get_owned().await.map_err(odbc_pool_err)?;
+                let sql = sql.to_owned();
+                odbc_run(&mut conn, move |c| odbc_fetch(c, &sql, max)).await
             }
             _ => with_pool!(self, p => fetch!(p, sql, max, Cells::Text)),
         };
@@ -764,6 +1061,10 @@ impl Pool {
                 }
                 result
             }
+            Pool::Oracle(p) | Pool::Db2(p) => {
+                let mut conn = p.get_owned().await.map_err(odbc_pool_err)?;
+                odbc_transaction(&mut conn, statements).await
+            }
             _ => with_pool!(self, p => {
                 let mut tx = p.begin().await.map_err(db_err)?;
                 let mut total = 0;
@@ -783,6 +1084,43 @@ impl Pool {
     }
 }
 
+/// Runs `statements` as one manual-commit transaction on `conn` (see [`Pool::transaction`]).
+/// Unlike [`odbc_run`], a failed commit/rollback/autocommit restore discards the connection
+/// (leaves it `None`) rather than risk pooling one stuck mid-transaction.
+async fn odbc_transaction(
+    conn: &mut bb8::PooledConnection<'static, OdbcConnectionManager>,
+    statements: &[(String, bool)],
+) -> IdeResult<u64> {
+    let statements = statements.to_vec();
+    let c = conn.0.take().ok_or_else(|| IdeError::new(ErrorKind::Io, "the connection was discarded"))?;
+    let (c, r, keep) = tokio::task::spawn_blocking(move || {
+        let r: IdeResult<u64> = (|| {
+            c.set_autocommit(false).map_err(odbc_err)?;
+            let mut total = 0u64;
+            for (sql, expect_one) in &statements {
+                let (_, _, affected, _, _) = odbc_fetch(&c, sql, 0)?;
+                let n = affected.unwrap_or(0);
+                if *expect_one && n != 1 {
+                    return Err(IdeError::invalid(format!(
+                        "{sql}: expected to change 1 row, changed {n}; nothing was saved"
+                    )));
+                }
+                total += n;
+            }
+            Ok(total)
+        })();
+        let cleanup = if r.is_ok() { c.commit() } else { c.rollback() };
+        let keep = cleanup.is_ok() && c.set_autocommit(true).is_ok();
+        (c, r, keep)
+    })
+    .await
+    .map_err(|e| IdeError::internal(e.to_string()))?;
+    if keep {
+        conn.0 = Some(c);
+    }
+    r
+}
+
 /// A connection taken out of a pool: for one statement, or held by a
 /// manual-commit console across statements with its transaction open.
 pub enum Held {
@@ -790,6 +1128,8 @@ pub enum Held {
     Postgres(PoolConnection<Postgres>),
     Mysql(PoolConnection<MySql>),
     SqlServer(Box<bb8::PooledConnection<'static, MssqlConnectionManager>>),
+    Oracle(Box<bb8::PooledConnection<'static, OdbcConnectionManager>>),
+    Db2(Box<bb8::PooledConnection<'static, OdbcConnectionManager>>),
 }
 
 impl Held {
@@ -799,6 +1139,8 @@ impl Held {
             Pool::Postgres(p) => Held::Postgres(p.acquire().await.map_err(db_err)?),
             Pool::Mysql(p) => Held::Mysql(p.acquire().await.map_err(db_err)?),
             Pool::SqlServer(p) => Held::SqlServer(Box::new(p.get_owned().await.map_err(mssql_pool_err)?)),
+            Pool::Oracle(p) => Held::Oracle(Box::new(p.get_owned().await.map_err(odbc_pool_err)?)),
+            Pool::Db2(p) => Held::Db2(Box::new(p.get_owned().await.map_err(odbc_pool_err)?)),
         })
     }
 
@@ -806,13 +1148,15 @@ impl Held {
     pub async fn command(&mut self, sql: &str) -> IdeResult<()> {
         match self {
             Held::SqlServer(c) => mssql_command(c, sql).await,
+            // Oracle and Db2 have no such SQL statements; see `conn::begin_statement`.
+            Held::Oracle(c) | Held::Db2(c) => odbc_command(c, sql).await,
             other => {
                 let sql = sqlx::AssertSqlSafe(sql.to_owned());
                 match other {
                     Held::Sqlite(c) => sqlx::raw_sql(sql).execute(&mut **c).await.map(drop),
                     Held::Postgres(c) => sqlx::raw_sql(sql).execute(&mut **c).await.map(drop),
                     Held::Mysql(c) => sqlx::raw_sql(sql).execute(&mut **c).await.map(drop),
-                    Held::SqlServer(_) => unreachable!(),
+                    Held::SqlServer(_) | Held::Oracle(_) | Held::Db2(_) => unreachable!(),
                 }
                 .map_err(db_err)
             }
@@ -831,6 +1175,9 @@ impl Held {
                 let _ = c.detach().close().await;
             }
             Held::SqlServer(mut c) => {
+                c.0.take();
+            }
+            Held::Oracle(mut c) | Held::Db2(mut c) => {
                 c.0.take();
             }
         }
@@ -887,6 +1234,14 @@ impl Held {
                     () = cancel.cancelled() => return Err(IdeError::cancelled()),
                 }
             }
+            Held::Oracle(c) | Held::Db2(c) => {
+                // odbc-api exposes no cancel API either; same fallback as SQL Server above.
+                let text = sql.to_owned();
+                tokio::select! {
+                    r = odbc_run(c, move |conn| odbc_fetch(conn, &text, max_rows)) => r?,
+                    () = cancel.cancelled() => return Err(IdeError::cancelled()),
+                }
+            }
         };
         let (columns, rows, affected, has_more, first) = fetched;
         let elapsed_ms = started.elapsed().as_secs_f64() * 1000.0;
@@ -902,12 +1257,15 @@ impl Held {
     }
 }
 
-/// The statement opening a transaction.
+/// The statement opening a transaction. Oracle and Db2 have no such statement (a
+/// transaction starts implicitly with the first DML); `"BEGIN"` is a sentinel
+/// [`Held::command`] recognizes to call `SQLSetConnectAttr(SQL_ATTR_AUTOCOMMIT, off)`
+/// instead of sending it as SQL.
 pub fn begin_statement(driver: DbDriver) -> &'static str {
     match driver {
         DbDriver::Mysql => "START TRANSACTION",
         DbDriver::SqlServer => "BEGIN TRAN",
-        DbDriver::Sqlite | DbDriver::Postgres => "BEGIN",
+        DbDriver::Sqlite | DbDriver::Postgres | DbDriver::Oracle | DbDriver::Db2 => "BEGIN",
     }
 }
 
