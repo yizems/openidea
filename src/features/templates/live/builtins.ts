@@ -451,6 +451,23 @@ const sqlCode = group(
   ],
 );
 
+/** GFM tables: type `table`, `table2` or `table4` and Tab through the header cells. */
+const markdownTables = group(
+  "Markdown",
+  "markdown",
+  ["markdown"],
+  [2, 3, 4].map((cols): Def => {
+    const row = (cell: (i: number) => string) => `| ${Array.from({ length: cols }, (_, i) => cell(i)).join(" | ")} |`;
+    return {
+      abbrev: cols === 3 ? "table" : `table${cols}`,
+      description: `Table with ${cols} columns`,
+      scope: "any",
+      body: [row((i) => `$C${i + 1}$`), row(() => "---"), row((i) => (i ? " " : "$END$"))].join("\n"),
+      variables: Array.from({ length: cols }, (_, i) => v(`C${i + 1}`, undefined, `"Column ${i + 1}"`)),
+    };
+  }),
+);
+
 export const BUILTIN_TEMPLATES: readonly LiveTemplate[] = [
   ...rust,
   ...ts,
@@ -462,6 +479,7 @@ export const BUILTIN_TEMPLATES: readonly LiveTemplate[] = [
   ...sqlStatement,
   ...sqlCode,
   ...general,
+  ...markdownTables,
   ...surround,
 ];
 
