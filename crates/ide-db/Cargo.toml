@@ -19,6 +19,7 @@ sqlx.workspace = true
 tiberius.workspace = true
 bb8.workspace = true
 tokio-util = { workspace = true, features = ["compat"] }
+odbc-api.workspace = true
 dirs.workspace = true
 ide-ssh.workspace = true
 

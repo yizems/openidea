@@ -37,6 +37,7 @@ export const VENDORS: readonly DbVendor[] = [
     scheme: "postgresql",
   },
   { id: "greenplum", label: "Greenplum", driver: "postgres", port: 5432, icon: "db-greenplum", scheme: "postgresql" },
+  { id: "db2", label: "IBM Db2", driver: "db2", port: 50000, icon: "db-db2", scheme: "db2" },
   { id: "mariadb", label: "MariaDB", driver: "mysql", port: 3306, icon: "db-mariadb", scheme: "mariadb" },
   {
     id: "sqlServer",
@@ -56,6 +57,7 @@ export const VENDORS: readonly DbVendor[] = [
     icon: "db-oceanbase",
     scheme: "oceanbase",
   },
+  { id: "oracle", label: "Oracle", driver: "oracle", port: 1521, icon: "db-oracle", scheme: "oracle" },
   { id: "postgres", label: "PostgreSQL", driver: "postgres", port: 5432, icon: "db-postgres", scheme: "postgresql" },
   {
     id: "singlestore",
@@ -123,6 +125,8 @@ const SCHEMES: Record<string, string> = {
   oceanbase: "oceanbase",
   sqlserver: "sqlServer",
   mssql: "sqlServer",
+  oracle: "oracle",
+  db2: "db2",
 };
 
 export const vendorOfScheme = (scheme: string): DbVendor | undefined => BY_ID.get(SCHEMES[scheme.toLowerCase()] ?? "");

@@ -171,7 +171,7 @@ describe("parseSourceUrl", () => {
       file: "C:/data/shop.db",
       name: "shop",
     });
-    expect(parseSourceUrl("oracle://x")).toBeNull();
+    expect(parseSourceUrl("notadriver://x")).toBeNull();
   });
 });
 
@@ -184,7 +184,9 @@ describe("data source types", () => {
     });
     expect(vendorPreset(vendorById("postgres")!)).toEqual({ driver: "postgres", vendor: "", port: 5432 });
     expect(vendorPreset(vendorById("supabase")!).ssl).toBe("require");
-    expect(VENDORS.every((v) => ["postgres", "mysql", "sqlite", "sqlServer"].includes(v.driver))).toBe(true);
+    expect(VENDORS.every((v) => ["postgres", "mysql", "sqlite", "sqlServer", "oracle", "db2"].includes(v.driver))).toBe(
+      true,
+    );
     const labels = VENDORS.map((v) => v.label);
     expect(labels).toEqual([...labels].sort((a, b) => a.localeCompare(b)));
   });

@@ -18,6 +18,11 @@ pub enum DbDriver {
     Mysql,
     /// Microsoft SQL Server.
     SqlServer,
+    /// Oracle Database, through the system's ODBC driver manager and Oracle's own ODBC
+    /// driver (no pure Rust driver exists). See [`DataSource::odbc_driver`].
+    Oracle,
+    /// IBM Db2, through ODBC like [`DbDriver::Oracle`].
+    Db2,
 }
 
 impl DbDriver {
@@ -27,7 +32,15 @@ impl DbDriver {
             DbDriver::Postgres => Some(5432),
             DbDriver::Mysql => Some(3306),
             DbDriver::SqlServer => Some(1433),
+            DbDriver::Oracle => Some(1521),
+            DbDriver::Db2 => Some(50000),
         }
+    }
+
+    /// Whether the driver connects through the system's ODBC driver manager
+    /// (needs [`DataSource::odbc_driver`]) instead of a driver built into OpenIDEA.
+    pub fn is_odbc(self) -> bool {
+        matches!(self, DbDriver::Oracle | DbDriver::Db2)
     }
 }
 
@@ -117,7 +130,8 @@ impl Default for DbIntrospection {
 
 /// Advanced tab: a driver property. PostgreSQL: run-time parameters (and
 /// `application_name`); MySQL: session variables (and `charset`, `collation`);
-/// SQLite: pragmas. See [`crate::conn`].
+/// SQLite: pragmas; Oracle / Db2 (ODBC): extra `key=value` connection string
+/// attributes. See [`crate::conn`].
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "camelCase", default)]
 pub struct DbProperty {
@@ -158,6 +172,11 @@ pub struct DataSource {
     pub user: String,
     /// SQLite database file (absolute, or relative to the project root).
     pub file: Option<IpcPath>,
+    /// [`DbDriver::Oracle`] / [`DbDriver::Db2`]: the name of the ODBC driver to connect
+    /// with, as registered with the system's ODBC driver manager (`odbcinst -q -d`
+    /// on Linux / macOS). OpenIDEA does not bundle one: install Oracle's or IBM's own
+    /// ODBC driver first.
+    pub odbc_driver: String,
     pub ssl: DbSslMode,
     /// Keep the password in the saved passwords.
     pub save_password: bool,
@@ -192,6 +211,7 @@ impl Default for DataSource {
             database: String::new(),
             user: String::new(),
             file: None,
+            odbc_driver: String::new(),
             ssl: DbSslMode::Prefer,
             save_password: false,
             read_only: false,
@@ -253,6 +273,8 @@ pub fn scheme_driver(scheme: &str) -> Option<DbDriver> {
         "mysql" | "mariadb" | "tidb" | "singlestore" | "memsql" | "oceanbase" => Some(DbDriver::Mysql),
         "sqlserver" | "mssql" | "mssqlserver" => Some(DbDriver::SqlServer),
         "sqlite" | "sqlite3" => Some(DbDriver::Sqlite),
+        "oracle" => Some(DbDriver::Oracle),
+        "db2" => Some(DbDriver::Db2),
         _ => None,
     }
 }
@@ -485,6 +507,23 @@ mod tests {
     }
 
     #[test]
+    fn oracle_and_db2_defaults() {
+        assert_eq!(DbDriver::Oracle.default_port(), Some(1521));
+        assert_eq!(DbDriver::Db2.default_port(), Some(50000));
+        assert!(DbDriver::Oracle.is_odbc() && DbDriver::Db2.is_odbc());
+        assert!(!DbDriver::Postgres.is_odbc() && !DbDriver::SqlServer.is_odbc());
+        assert_eq!(scheme_driver("oracle"), Some(DbDriver::Oracle));
+        assert_eq!(scheme_driver("db2"), Some(DbDriver::Db2));
+        let u = parse_url("oracle://scott:tiger@db.local:1521/orclpdb1").unwrap();
+        assert_eq!(u.driver, Some(DbDriver::Oracle));
+        assert_eq!((u.host.as_str(), u.port, u.database.as_str()), ("db.local", Some(1521), "orclpdb1"));
+        assert_eq!((u.user.as_str(), u.password.as_deref()), ("scott", Some("tiger")));
+        let u = parse_url("jdbc:db2://host:50000/sample").unwrap();
+        assert_eq!(u.driver, Some(DbDriver::Db2));
+        assert_eq!((u.host.as_str(), u.port, u.database.as_str()), ("host", Some(50000), "sample"));
+    }
+
+    #[test]
     fn parses_urls() {
         let u = parse_url("jdbc:postgresql://ann:s%40cret@db.local:5433/shop?sslmode=require&search_path=app").unwrap();
         assert_eq!(u.driver, Some(DbDriver::Postgres));
@@ -496,7 +535,7 @@ mod tests {
         assert_eq!(parse_url("jdbc:redshift://r:5439/dev").unwrap().driver, Some(DbDriver::Postgres));
         assert_eq!(parse_url("tidb://h:4000").unwrap().driver, Some(DbDriver::Mysql));
         assert_eq!(parse_url("sqlite:/tmp/a.db").unwrap().file.as_deref(), Some("/tmp/a.db"));
-        assert!(parse_url("oracle://x").is_err());
+        assert!(parse_url("db2x://x").is_err());
         assert!(parse_url("postgres://h:99999/db").is_err());
     }
 

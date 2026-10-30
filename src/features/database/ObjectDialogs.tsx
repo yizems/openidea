@@ -269,6 +269,31 @@ const TYPES: Record<DbDriver, string[]> = {
     "bit",
     "varbinary(max)",
   ],
+  oracle: [
+    "NUMBER",
+    "NUMBER(10,2)",
+    "VARCHAR2(255)",
+    "NVARCHAR2(255)",
+    "CHAR(1)",
+    "CLOB",
+    "BLOB",
+    "DATE",
+    "TIMESTAMP",
+    "RAW(16)",
+  ],
+  db2: [
+    "INTEGER",
+    "BIGINT",
+    "SMALLINT",
+    "DECIMAL(10,2)",
+    "VARCHAR(255)",
+    "CHAR(1)",
+    "CLOB",
+    "BLOB",
+    "DATE",
+    "TIME",
+    "TIMESTAMP",
+  ],
 };
 
 interface ModifyProps {
