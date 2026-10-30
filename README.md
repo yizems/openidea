@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/l0ng-ai/openidea/releases/latest"><b>Download</b></a>
+  <a href="https://github.com/yizems/openidea/releases/latest"><b>Download</b></a>
   &nbsp;·&nbsp;
   <a href="#benchmark">Benchmark</a>
   &nbsp;·&nbsp;
