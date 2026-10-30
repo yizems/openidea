@@ -99,6 +99,10 @@ sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio",
 tiberius = { version = "0.12", default-features = false, features = ["tds73", "rustls", "sql-browser-tokio"] }
 bb8 = "0.9"
 bb8-tiberius = { version = "0.16", default-features = false, features = ["tds73", "tls", "with-tokio", "sql-browser"] }
+# Oracle and DB2 (no pure-Rust driver exists): the system's ODBC driver manager
+# (unixODBC / iODBC / Windows ODBC) plus the vendor's own ODBC driver, installed
+# separately. See `ide-db::conn`'s `OdbcConnectionManager`.
+odbc-api = "29"
 uuid = { version = "1", features = ["v4"] }
 
 # testing
