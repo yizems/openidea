@@ -81,28 +81,61 @@ Oracle and Db2 have no such driver, so OpenIDEA connects to them through the sys
   - Windows: nothing to install, it ships with the OS.
 - **Connecting to an actual Oracle or Db2 server additionally needs that vendor's own
   ODBC driver** (Oracle Instant Client's ODBC component, or IBM's Data Server Driver),
-  which is proprietary and not bundled, detailed below.
+  which is proprietary and not bundled.
 
-#### Adding the Oracle driver
+#### Quick install (macOS/Linux)
+
+[`scripts/install-db-driver.mjs`](scripts/install-db-driver.mjs) downloads the vendor's
+ODBC driver and registers it with unixODBC in one step — no Oracle or IBM account
+needed, it fetches the same unauthenticated files `pip install oracledb`/`ibm_db` do
+internally. It's a single file with no npm dependencies: copy it anywhere and run it
+with plain `node`.
+
+```sh
+node scripts/install-db-driver.mjs oracle
+node scripts/install-db-driver.mjs db2
+```
+
+It installs into `~/.dbdriver/<oracle|db2>` and prints the exact driver name to paste
+into OpenIDEA's "ODBC driver" field. Re-running without `--force` reuses the existing
+download; add `--force` to redo it (e.g. after a version bump). Requires `tar` and
+`unzip` (Linux) or `hdiutil` (macOS, built in) to unpack the vendor archive, besides
+unixODBC itself. Behind a corporate proxy, it honors `HTTPS_PROXY`/`HTTP_PROXY`/
+`ALL_PROXY`/`NO_PROXY` the same way curl/git do (tunneled by hand over Node's
+built-in `http`/`tls`, no proxy-agent package).
+
+This covers macOS and Linux, x86_64 and arm64. For anything else (Windows, other
+architectures), or to install a specific version yourself, see the manual steps below.
+
+#### Adding the Oracle driver manually
 
 1. Download the **Basic** and **ODBC** packages for your platform from
    [Oracle Instant Client Downloads](https://www.oracle.com/database/technologies/instant-client/downloads.html)
    (an Oracle account is required). Unzip both into the same directory, e.g.
    `/opt/oracle/instantclient_21_8`.
 2. Register the driver with unixODBC using the script the ODBC package ships with:
+
    ```sh
    cd /opt/oracle/instantclient_21_8
    ./odbc_update_ini.sh / "$(pwd)"
    ```
+
    On Windows, run the bundled `odbc_install.exe` instead; it registers the driver with
    the Windows ODBC Data Source Administrator.
+
+   **macOS caveat**: the `odbc_update_ini.sh` shipped in at least the Instant Client 23
+   ODBC package has a bug — it hardcodes the Linux library name (`libsqora.so.23.1`)
+   even though the macOS package's actual file is `libsqora.dylib.23.1`. If `odbcinst -q -d`
+   shows the wrong extension afterwards, fix the `Driver=` line in `odbcinst.ini`
+   (`odbcinst -j` prints its path) by hand, or use the install script above instead.
+
 3. Make sure the Oracle client libraries are on the loader path whenever OpenIDEA runs,
    e.g. `export LD_LIBRARY_PATH=/opt/oracle/instantclient_21_8:$LD_LIBRARY_PATH` (Linux)
    or the macOS/Windows equivalent — see the Instant Client README for your platform.
 4. Run `odbcinst -q -d` (Linux/macOS) to confirm the driver is registered and note its
    exact name, e.g. `[Oracle 21 ODBC driver]`.
 
-#### Adding the Db2 driver
+#### Adding the Db2 driver manually
 
 1. Download the **IBM Data Server Driver for ODBC and CLI** from
    [IBM Fix Central](https://www.ibm.com/support/fixcentral/) (an IBM account is
@@ -120,7 +153,8 @@ README bundled with your download if it diverges from the above.
 
 In **New ▸ Data Source ▸ Oracle** (or **Db2**):
 
-- **ODBC driver**: paste the exact name `odbcinst -q -d` printed in step 4/2 above.
+- **ODBC driver**: the name printed by `install-db-driver.mjs`, or the one
+  `odbcinst -q -d` showed after a manual install.
 - **Host** / **Port**: the database server (Oracle default port `1521`, Db2 `50000`).
 - **Database**: Oracle's service name (`ORCLPDB1`, …) or Db2's cataloged database
   alias/name — whatever you'd otherwise put after `host:port/` in a connection string.
