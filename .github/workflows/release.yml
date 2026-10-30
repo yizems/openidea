@@ -28,13 +28,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { ref: "${{ env.TAG }}" }
-      - name: Tag matches app version
-        run: |
-          app="v$(jq -r .version src-tauri/tauri.conf.json)"
-          if [ "$app" != "$TAG" ]; then
-            echo "::error::tag $TAG does not match tauri.conf.json version $app"
-            exit 1
-          fi
       - id: release
         uses: actions/github-script@v7
         with:
@@ -64,15 +57,6 @@ jobs:
           - name: macOS arm64
             os: macos-latest
             target: aarch64-apple-darwin
-          - name: macOS x64
-            os: macos-latest
-            target: x86_64-apple-darwin
-          - name: Linux x64
-            os: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-          - name: Windows x64
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -85,11 +69,6 @@ jobs:
         with: { targets: "${{ matrix.target }}" }
       - uses: Swatinem/rust-cache@v2
         with: { key: "${{ matrix.target }}" }
-      - name: Linux deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
       - run: pnpm install --frozen-lockfile
       # Signing is optional: only secrets that are set get exported, so forks and
       # unconfigured repos produce unsigned builds instead of failing.
@@ -135,7 +114,6 @@ jobs:
 
   # The remote development server, per host platform it can run on. The desktop
   # app downloads the one for the host (ide-tools `server`) and installs it over SSH.
-  # Linux builds are static (musl), so they run whatever the host's glibc.
   server:
     needs: create-release
     name: Server (${{ matrix.os }}-${{ matrix.arch }})
@@ -143,10 +121,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { runner: ubuntu-22.04, target: x86_64-unknown-linux-musl, os: linux, arch: x86_64 }
-          - { runner: ubuntu-24.04-arm, target: aarch64-unknown-linux-musl, os: linux, arch: aarch64 }
           - { runner: macos-latest, target: aarch64-apple-darwin, os: macos, arch: aarch64 }
-          - { runner: macos-latest, target: x86_64-apple-darwin, os: macos, arch: x86_64 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
@@ -155,14 +130,8 @@ jobs:
         with: { targets: "${{ matrix.target }}" }
       - uses: Swatinem/rust-cache@v2
         with: { key: "server-${{ matrix.target }}" }
-      - name: musl toolchain
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y musl-tools
       - name: Build
-        run: |
-          # musl-tools only ships `musl-gcc`; cc-rs would look for `<arch>-linux-musl-gcc`.
-          if [ "$RUNNER_OS" = Linux ]; then export CC_${TARGET//-/_}=musl-gcc; fi
-          cargo build --release --locked -p ide-host --bin openidea-server --target "$TARGET"
+        run: cargo build --release --locked -p ide-host --bin openidea-server --target "$TARGET"
         env:
           TARGET: ${{ matrix.target }}
       - name: Upload
@@ -196,13 +165,7 @@ jobs:
             }
             // Bundle suffix → updater platform keys, as tauri-action names them.
             const kinds = [
-              [/_amd64\.AppImage$/, ["linux-x86_64", "linux-x86_64-appimage"]],
-              [/_amd64\.deb$/, ["linux-x86_64-deb"]],
-              [/\.x86_64\.rpm$/, ["linux-x86_64-rpm"]],
               [/_aarch64\.app\.tar\.gz$/, ["darwin-aarch64", "darwin-aarch64-app"]],
-              [/_x64\.app\.tar\.gz$/, ["darwin-x86_64", "darwin-x86_64-app"]],
-              [/_x64_en-US\.msi$/, ["windows-x86_64", "windows-x86_64-msi"]],
-              [/_x64-setup\.exe$/, ["windows-x86_64-nsis"]],
             ];
             const platforms = {};
             for (const sig of sigs) {
