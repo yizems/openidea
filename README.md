@@ -86,3 +86,15 @@ If OpenIDEA saves you time, you can support its development with Alipay or WeCha
 [Apache 2.0](LICENSE). Bundled third-party assets are listed in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
 
 <sub>Not affiliated with JetBrains. IntelliJ IDEA is a trademark of JetBrains s.r.o.</sub>
+
+## me
+
+```
+pnpm tauri build --target aarch64-apple-darwin
+
+target/aarch64-apple-darwin/release/bundle/macos/OpenIDEA.app/Contents/MacOS/openidea: Mach-O 64-bit executable arm64
+
+ditto -c -k --sequesterRsrc --keepParent \
+  target/aarch64-apple-darwin/release/bundle/macos/OpenIDEA.app \
+  OpenIDEA.zip
+```
