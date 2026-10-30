@@ -65,6 +65,35 @@ OPENIDEA_TEST_PYTHON_SECOND=/second/env/bin/python \
 cargo test -p ide-notebook --test kernel_runtime -- --ignored --test-threads=1
 ```
 
+### Database drivers
+
+SQLite, PostgreSQL, MySQL/MariaDB and SQL Server connect out of the box: their drivers
+are pure Rust (`sqlx`) or bundled (`tiberius`), no extra software needed.
+
+Oracle and Db2 have no such driver, so OpenIDEA connects to them through the system's
+**ODBC driver manager** instead. This has two consequences:
+
+- **Building (and running) OpenIDEA at all requires unixODBC to be installed**, even if
+  you never connect to Oracle or Db2: `ide-db` links against it unconditionally.
+  - macOS: `brew install unixodbc`
+  - Debian/Ubuntu: `sudo apt install unixodbc`
+  - Fedora/RHEL: `sudo dnf install unixODBC`
+  - Windows: nothing to install, it ships with the OS.
+- **Connecting to an actual Oracle or Db2 server additionally needs that vendor's own
+  ODBC driver** (Oracle Instant Client's ODBC component, or IBM's Data Server Driver),
+  which is proprietary and not bundled: install it separately, register it with
+  `odbcinst -i -d` (Linux/macOS) or the ODBC Data Source Administrator (Windows), and
+  enter its registered name as the data source's "ODBC driver" (Advanced tab) in
+  OpenIDEA.
+
+The live Oracle/Db2 integration tests are opt-in the same way, each needing a
+throwaway database and an installed driver:
+
+```sh
+OPENIDEA_TEST_ORACLE=host:port:service:user:password:driver cargo test -p ide-db --test oracle
+OPENIDEA_TEST_DB2=host:port:database:user:password:driver cargo test -p ide-db --test db2
+```
+
 ## License
 
 [Apache 2.0](LICENSE). Bundled third-party assets are listed in [`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md).
