@@ -27,6 +27,7 @@ import {
 import { ImageViewer, toggleChessboard, useImageViewers } from "./ImageViewer";
 import { HexViewer } from "./HexViewer";
 import { registerMarkdownLiveSource } from "./markdown/live";
+import { registerMarkdownFormat } from "./markdown/format";
 import { registerMarkdownPaste } from "./markdown/paste";
 import { setMarkdownMode, type MarkdownMode } from "./markdown/modes";
 
@@ -101,6 +102,7 @@ export function activate(): () => void {
     }),
     registerMarkdownLiveSource(),
     registerMarkdownPaste(),
+    registerMarkdownFormat(),
     registerActions([...imageActions(), ...markdownActions()]),
   ];
   return () => disposers.reverse().forEach((d) => d());
