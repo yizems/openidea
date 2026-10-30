@@ -42,6 +42,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev patchelf
+      # ide-db links against unixODBC unconditionally (see README's "Database drivers").
+      - name: macOS deps
+        if: runner.os == 'macOS'
+        run: brew install unixodbc
       # tauri-build checks that frontendDist exists.
       - run: pnpm install --frozen-lockfile && mkdir -p dist
         shell: bash
