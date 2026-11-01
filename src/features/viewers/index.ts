@@ -33,6 +33,7 @@ import {
 import { ImageViewer, toggleChessboard, useImageViewers } from "./ImageViewer";
 import { HexViewer } from "./HexViewer";
 import { registerMarkdownLiveSource } from "./markdown/live";
+import { registerMarkdownNumbering } from "./markdown/numbering";
 import { setMarkdownMode, useMarkdownSourceHidden, type MarkdownMode } from "./markdown/modes";
 import { MarkdownLayoutActions } from "./markdown/MarkdownLayoutActions";
 
@@ -132,6 +133,7 @@ export function activate(): () => void {
       useSourceHidden: useMarkdownSourceHidden,
     }),
     registerMarkdownLiveSource(),
+    registerMarkdownNumbering(),
     registerActions([...imageActions(), ...markdownActions()]),
   ];
   return () => disposers.reverse().forEach((d) => d());
