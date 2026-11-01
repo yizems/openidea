@@ -35,6 +35,7 @@ import {
 import { ImageViewer, toggleChessboard, useImageViewers } from "./ImageViewer";
 import { HexViewer } from "./HexViewer";
 import { registerMarkdownLiveSource } from "./markdown/live";
+import { registerMarkdownNumbering } from "./markdown/numbering";
 import { setMarkdownMode, useMarkdownModes, useMarkdownSourceHidden } from "./markdown/modes";
 import type { LayoutMode } from "./layoutModes";
 import { registerSvgLiveSource } from "./svg/live";
@@ -178,6 +179,7 @@ export function activate(): () => void {
       items: (_menu, { paths: [path] }) =>
         path === activeEditor()?.ctx.path && canExtractImages() ? [{ kind: "action", action: EXTRACT_IMAGES }] : [],
     }),
+    registerMarkdownNumbering(),
     registerActions([...imageActions(), ...markdownActions()]),
   ];
   return () => disposers.reverse().forEach((d) => d());
