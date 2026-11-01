@@ -530,6 +530,7 @@
   "Editor Only": "仅编辑器",
   "Editor and Preview": "编辑器和预览",
   "Preview Only": "仅预览",
+  "Number Headings": "标题编号",
   "Add Maven Projects": "添加 Maven 项目",
   "Choose one or more pom.xml files inside or outside the opened project. The opened folder stays the project root.": "选择打开项目之内或之外的一个或多个 pom.xml。打开的文件夹仍是项目根。",
   "Import Module from Existing Sources": "导入已有模块",
