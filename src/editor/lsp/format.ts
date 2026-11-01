@@ -201,30 +201,21 @@ export async function formatLines(view: EditorView, from: number, to: number): P
   return true;
 }
 
-async function applyContributedFormat(
+function applyContributedFormat(
   view: EditorView,
   format: ContributedFormatter,
   opts: { explicit: boolean; selectionOnly?: boolean; onSave?: boolean },
   guard: FormatGuardOptions,
-): Promise<FormatResult> {
+): FormatResult {
   const state = view.state;
   if (state.readOnly) return NOTHING;
   const sel = state.selection.main;
   const useSelection = (opts.selectionOnly ?? true) && !sel.empty;
-  let formatted;
-  try {
-    formatted = await format(state, useSelection ? { from: sel.from, to: sel.to } : null);
-  } catch (e) {
-    if (opts.explicit) showHint(view, e instanceof Error ? e.message : String(e));
-    return NOTHING;
-  }
-  if (view.state.doc !== state.doc) {
-    if (opts.explicit) showHint(view, "The file changed while formatting; try again");
-    return NOTHING;
-  }
   const changes = guardFormatChanges(
     state.doc.toString(),
-    formatted.filter((c) => state.sliceDoc(c.from, c.to) !== c.insert).sort((a, b) => a.from - b.from),
+    format(state, useSelection ? { from: sel.from, to: sel.to } : null)
+      .filter((c) => state.sliceDoc(c.from, c.to) !== c.insert)
+      .sort((a, b) => a.from - b.from),
     guard,
   );
   if (!changes.length) {

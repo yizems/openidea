@@ -315,12 +315,11 @@ export const CONTRIBUTED_FORMAT = "openideaFormat";
 export const CONTRIBUTED_DEFINITION = "openideaDefinition";
 export const CONTRIBUTED_HOVER = "openideaHover";
 
-/** Reformat Code: replacements for `range` (the selection) or the whole document; may be computed asynchronously. */
+/** Reformat Code: replacements for `range` (the selection) or the whole document. */
 export type ContributedFormatter = (
   state: EditorState,
   range: { from: number; to: number } | null,
-) => FormatChanges | Promise<FormatChanges>;
-type FormatChanges = Array<{ from: number; to: number; insert: string }>;
+) => Array<{ from: number; to: number; insert: string }>;
 /** Go to Declaration / ⌘-click: `true` when it handled `pos`. */
 export type ContributedDefinition = (view: EditorView, pos: number) => boolean;
 /** Hover and Quick Documentation: Markdown about the symbol at `pos`. */
