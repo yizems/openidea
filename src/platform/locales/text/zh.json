@@ -509,6 +509,7 @@
   "Editor Only": "仅编辑器",
   "Editor and Preview": "编辑器和预览",
   "Preview Only": "仅预览",
+  "Number Headings": "标题编号",
   "Add Maven Projects": "添加 Maven 项目",
   "Some Maven projects were not added": "部分 Maven 项目未能添加",
   "These are outside the open project, and Maven only links POMs inside it: {join}{more}": "这些项目位于已打开项目之外，而 Maven 仅链接项目内的 POM：{join}{more}",
