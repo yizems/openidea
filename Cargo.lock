@@ -4334,7 +4334,7 @@ dependencies = [
  "ide-vfs",
  "ide-workspace",
  "parking_lot",
- "rustix",
+ "rustix 1.1.5",
  "serde",
  "serde_json",
  "specta",
