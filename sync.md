@@ -4,7 +4,7 @@
 需要依次执行以下任务(任一步失败则停止并汇报,不执行后续步骤)。
 **平台判断: 如果当前系统是 Windows, 则跳过步骤 5(编译)、6(压缩), 其余步骤照常执行。**
 
-1. 同步 `main`(使用 worktree `openidea-worktrees/main`, 不要在这一步操作当前这个工作区)
+1. 同步 `main`(使用 worktree `openidea-worktrees-main`, 不要在这一步操作当前这个工作区)
    - 在该 worktree 中确认当前分支是 `main` 且工作区干净。
    - `git fetch origin`
    - `git merge --ff-only origin/main`(预期总是可以快进; 如果不能快进, 说明 `main` 不再是纯镜像, 停止并汇报, 不要强行合并或 reset)
