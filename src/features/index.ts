@@ -38,6 +38,7 @@ import { activate as libraries } from "./libraries";
 import { activate as viewers } from "./viewers";
 import { activate as notebook } from "./notebook";
 import { activate as web } from "./web";
+import { activate as jumpTo } from "./jumpTo";
 import { activate as analysis } from "./analysis";
 import { activate as services } from "./services";
 import { activate as github } from "./github";
@@ -93,6 +94,7 @@ const features: Array<[string, Activate]> = [
   ["notebook", notebook],
   ["viewers", viewers],
   ["web", web],
+  ["jumpTo", jumpTo],
   ["analysis", analysis],
   ["services", services],
   ["github", github],

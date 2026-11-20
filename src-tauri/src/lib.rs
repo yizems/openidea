@@ -4,7 +4,7 @@
 //! Tauri adapters of project-host commands are derived from their `ide-host` declarations. No
 //! domain logic lives here.
 // `commands::catalogue!` recurses a few times per command domain.
-#![recursion_limit = "256"]
+#![recursion_limit = "512"]
 
 mod application_focus;
 mod cli;

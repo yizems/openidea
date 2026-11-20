@@ -2775,5 +2775,15 @@
   "rename it back to {name}": "rename it back to {name}",
   "restore {name} and check out the previous branch again": "restore {name} and check out the previous branch again",
   "Unset upstream of {to} ({root})": "Unset upstream of {to} ({root})",
-  "Group by Repository": "Group by Repository"
+  "Group by Repository": "Group by Repository",
+  "Jump To": "Jump To",
+  "Cannot open in another IDE": "Cannot open in another IDE",
+  "Open in Another IDE": "Open in Another IDE",
+  "Open the current project and file in another IDE, at the same line": "Open the current project and file in another IDE, at the same line",
+  "No editors configured": "No editors configured",
+  "Choose IDE executable": "Choose IDE executable",
+  "Executable path": "Executable path",
+  "Browse for executable": "Browse for executable",
+  "Show in menu": "Show in menu",
+  "Right-click a file in the editor and choose Jump To to open the same project and file, at the same line, in another IDE. Set each editor's executable and turn it on to show it in the menu; leave the path empty to use the default command on PATH.": "Right-click a file in the editor and choose Jump To to open the same project and file, at the same line, in another IDE. Set each editor's executable and turn it on to show it in the menu; leave the path empty to use the default command on PATH."
 }

@@ -782,6 +782,12 @@ export const commands = {
 	jdkDownloadVendors: () => __TAURI_INVOKE<JdkVendor[]>("jdk_download_vendors"),
 	/**  The Java version the window's jdtls needs; `None` while it isn't installed or doesn't tell. */
 	jdtlsRequiredJava: () => typedError<number | null, IdeError>(__TAURI_INVOKE("jdtls_required_java")),
+	/**
+	 *  Launches `executable` with `args`, detached from the IDE. The executable is a
+	 *  user-chosen path from the Jump To settings (or a known app name resolved from
+	 *  PATH); arguments never go through a shell.
+	 */
+	jumpToOpen: (executable: string, args: string[]) => typedError<null, IdeError>(__TAURI_INVOKE("jump_to_open", { executable, args })),
 	jvmFilePresentations: (paths: string[]) => typedError<JvmFilePresentation[], IdeError>(__TAURI_INVOKE("jvm_file_presentations", { paths })),
 	languages: () => __TAURI_INVOKE<LanguageInfo_Serialize[]>("languages"),
 	/**

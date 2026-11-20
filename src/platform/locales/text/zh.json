@@ -9140,5 +9140,15 @@
   "{name} changed on disk": "{name} 已在磁盘上更改",
   "The file was changed outside the IDE while it has unsaved changes in the editor. Saving keeps the editor's version and overwrites the file.": "该文件在 IDE 外被修改，而编辑器中还有未保存的更改。保存会保留编辑器中的版本并覆盖该文件。",
   "Load Changes from Disk": "从磁盘加载更改",
-  "Keep Editor Changes": "保留编辑器中的更改"
+  "Keep Editor Changes": "保留编辑器中的更改",
+  "Jump To": "跳转到",
+  "Cannot open in another IDE": "无法在其它 IDE 中打开",
+  "Open in Another IDE": "在其它 IDE 中打开",
+  "Open the current project and file in another IDE, at the same line": "在另一个 IDE 中打开当前项目与文件，并定位到同一行",
+  "No editors configured": "未配置编辑器",
+  "Choose IDE executable": "选择 IDE 可执行文件",
+  "Executable path": "可执行文件路径",
+  "Browse for executable": "浏览选择可执行文件",
+  "Show in menu": "在菜单中显示",
+  "Right-click a file in the editor and choose Jump To to open the same project and file, at the same line, in another IDE. Set each editor's executable and turn it on to show it in the menu; leave the path empty to use the default command on PATH.": "在编辑器中右键点击文件并选择“跳转到”，即可在其它 IDE 中打开同一项目和文件并定位到同一行。为每个编辑器设置可执行文件并开启“在菜单中显示”；路径留空则使用 PATH 中的默认命令。"
 }
