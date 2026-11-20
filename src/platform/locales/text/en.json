@@ -4430,5 +4430,15 @@
   "Keep Key": "Keep Key",
   "Drop Index": "Drop Index",
   "Keep Index": "Keep Index",
-  "SQLite cannot drop the index of a primary key or unique constraint.": "SQLite cannot drop the index of a primary key or unique constraint."
+  "SQLite cannot drop the index of a primary key or unique constraint.": "SQLite cannot drop the index of a primary key or unique constraint.",
+  "Jump To": "Jump To",
+  "Cannot open in another IDE": "Cannot open in another IDE",
+  "Open in Another IDE": "Open in Another IDE",
+  "Open the current project and file in another IDE, at the same line": "Open the current project and file in another IDE, at the same line",
+  "No editors configured": "No editors configured",
+  "Choose IDE executable": "Choose IDE executable",
+  "Executable path": "Executable path",
+  "Browse for executable": "Browse for executable",
+  "Show in menu": "Show in menu",
+  "Right-click a file in the editor and choose Jump To to open the same project and file, at the same line, in another IDE. Set each editor's executable and turn it on to show it in the menu; leave the path empty to use the default command on PATH.": "Right-click a file in the editor and choose Jump To to open the same project and file, at the same line, in another IDE. Set each editor's executable and turn it on to show it in the menu; leave the path empty to use the default command on PATH."
 }

@@ -28,6 +28,8 @@ export type MenuItem =
   | { kind: "header"; label: string; asTitle?: boolean }
   | {
       kind: "action";
+      /** Stable key when several items share the same action but have different args. */
+      id?: string;
       action: string;
       arg?: unknown;
       label?: string;
@@ -103,7 +105,7 @@ export function resolveMenuItems(items: MenuItem[]): Resolved[] {
       if (!a) return;
       out.push({
         kind: "item",
-        key: typeof item.arg === "string" ? `${item.action}|${item.arg}` : item.action,
+        key: item.id ?? (typeof item.arg === "string" ? `${item.action}|${item.arg}` : item.action),
         label: (item.verbatim ? item.label : tx(item.label)) ?? a.title,
         icon: item.icon === null ? undefined : (item.icon ?? a.icon),
         shortcut: shortcutLabel(item.action),

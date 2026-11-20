@@ -3,6 +3,7 @@ import { activateSettingsPages as agentsPages } from "./features/agents/settings
 import { installLocaleSync } from "./features/app/locale";
 import { activateSettingsPages as databasePages } from "./features/database/settingsPages";
 import { activateSettingsPages as githubPages } from "./features/github/settingsPages";
+import { activateSettingsPages as jumpToPages } from "./features/jumpTo/settingsPages";
 import { activateSettingsPages as pluginsPages } from "./features/plugins/settingsPages";
 import { activate as projectTrust } from "./features/project-trust";
 import { activateSettingsWindow } from "./features/settings/settingsWindow";
@@ -38,6 +39,7 @@ export function bootSettingsWindow(parent: string): ComponentType {
     ["todo", todoPages],
     ["plugins", pluginsPages],
     ["tools", toolsPages],
+    ["jumpTo", jumpToPages],
     ["agents", agentsPages],
     ["terminal", embeddedTerminal],
     ["vim", vimPages],

@@ -42,6 +42,7 @@ import { activate as pythonConsole } from "./python-console";
 import { activate as django } from "./django";
 import { activate as pythonPackages } from "./python-packages";
 import { activate as web } from "./web";
+import { activate as jumpTo } from "./jumpTo";
 import { activate as analysis } from "./analysis";
 import { activate as services } from "./services";
 import { activate as github } from "./github";
@@ -102,6 +103,7 @@ const features: Array<[string, Activate]> = [
   ["python-packages", pythonPackages],
   ["viewers", viewers],
   ["web", web],
+  ["jumpTo", jumpTo],
   ["analysis", analysis],
   ["services", services],
   ["github", github],
