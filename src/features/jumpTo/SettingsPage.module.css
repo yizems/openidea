@@ -1,0 +1,47 @@
+.page {
+  max-width: 760px;
+}
+
+.intro {
+  color: var(--fg-subtle);
+  margin: 0 0 var(--space-4);
+  line-height: 1.6;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.table th {
+  color: var(--fg-subtle);
+  font-weight: 600;
+}
+
+.name {
+  white-space: nowrap;
+}
+
+.path {
+  width: 100%;
+}
+
+.pathCell {
+  width: 100%;
+}
+
+.browse {
+  white-space: nowrap;
+}
+
+.show {
+  text-align: center;
+}

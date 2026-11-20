@@ -336,6 +336,7 @@ jdk_download_location                        always             project_host bin
 jdk_download_releases                        always             project_host bindings async
 jdk_download_vendors                         always             project_host bindings sync
 jdtls_required_java                          always             project_host bindings async
+jump_to_open                                 trusted            desktop      bindings async
 jvm_file_presentations                       always             project_host bindings async
 languages                                    always             desktop      bindings sync
 light_edit_open                              always             desktop      bindings async

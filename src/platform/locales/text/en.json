@@ -3822,5 +3822,15 @@
   "No stub or implementation found": "No stub or implementation found",
   "Implementation of {name} in {file}": "Implementation of {name} in {file}",
   "Stub of {name} in {file}": "Stub of {name} in {file}",
-  "This color can't be changed with the picker": "This color can't be changed with the picker"
+  "This color can't be changed with the picker": "This color can't be changed with the picker",
+  "Jump To": "Jump To",
+  "Cannot open in another IDE": "Cannot open in another IDE",
+  "Open in Another IDE": "Open in Another IDE",
+  "Open the current project and file in another IDE, at the same line": "Open the current project and file in another IDE, at the same line",
+  "No editors configured": "No editors configured",
+  "Choose IDE executable": "Choose IDE executable",
+  "Executable path": "Executable path",
+  "Browse for executable": "Browse for executable",
+  "Show in menu": "Show in menu",
+  "Right-click a file in the editor and choose Jump To to open the same project and file, at the same line, in another IDE. Set each editor's executable and turn it on to show it in the menu; leave the path empty to use the default command on PATH.": "Right-click a file in the editor and choose Jump To to open the same project and file, at the same line, in another IDE. Set each editor's executable and turn it on to show it in the menu; leave the path empty to use the default command on PATH."
 }
