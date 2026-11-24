@@ -325,7 +325,7 @@ describe("ProjectView", () => {
       ok(previewTabSettings(JSON.parse(value) as boolean)),
     );
     const { result } = renderHook(() => useProjectHeaderMenu());
-    type Item = Extract<MenuItem, { id?: string }>;
+    type Item = Extract<MenuItem, { kind?: "item" }>;
     const behavior = () => (result.current[0] as Item).submenu as Item[];
     const item = () => behavior().find((i) => i.id === "previewTab")!;
     expect(item().checked).toBe(true);
