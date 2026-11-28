@@ -2,7 +2,7 @@
 
 use ide_command::desktop_command;
 use ide_core::{IdeError, IdeResult};
-use ide_host::ops::coverage::blocking;
+use ide_host::ops::blocking;
 use std::ffi::OsString;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
